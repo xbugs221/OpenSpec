@@ -4,6 +4,11 @@
  * Displays artifact completion status for a change.
  */
 
+/**
+ * Purpose: display artifact completion status for a change in the runtime-only
+ * workflow surface.
+ */
+
 import ora from 'ora';
 import chalk from 'chalk';
 import {

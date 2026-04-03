@@ -1,3 +1,8 @@
+/**
+ * Purpose: load schema-aware artifact workflow context and instructions from
+ * the resolved project state root.
+ */
+
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getSchemaDir, resolveSchema } from './resolver.js';
@@ -6,6 +11,7 @@ import { detectCompleted } from './state.js';
 import { resolveSchemaForChange } from '../../utils/change-metadata.js';
 import { readProjectConfig, validateConfigRules } from '../project-config.js';
 import type { Artifact, CompletedSet } from './types.js';
+import { getChangeDir } from '../state-root.js';
 
 // Session-level cache for validation warnings (avoid repeating same warnings)
 const shownWarnings = new Set<string>();
@@ -175,10 +181,14 @@ export function loadChangeContext(
   changeName: string,
   schemaName?: string
 ): ChangeContext {
-  const changeDir = path.join(projectRoot, 'openspec', 'changes', changeName);
+  /**
+   * Change location must come from the shared state-root helper so every
+   * runtime command sees the same repository layout.
+   */
+  const changeDir = getChangeDir(projectRoot, changeName);
 
   // Resolve schema: explicit > metadata > default
-  const resolvedSchemaName = resolveSchemaForChange(changeDir, schemaName);
+  const resolvedSchemaName = resolveSchemaForChange(changeDir, schemaName, projectRoot);
 
   const schema = resolveSchema(resolvedSchemaName, projectRoot);
   const graph = ArtifactGraph.fromSchema(schema);

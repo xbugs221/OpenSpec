@@ -5,11 +5,17 @@
  * multiple artifact workflow commands.
  */
 
+/**
+ * Purpose: share workflow-command validation and presentation helpers for the
+ * runtime-only artifact workflow surface.
+ */
+
 import chalk from 'chalk';
 import path from 'path';
 import * as fs from 'fs';
 import { getSchemaDir, listSchemas } from '../../core/artifact-graph/index.js';
 import { validateChangeName } from '../../utils/change-utils.js';
+import { getChangeDir, getChangesDir } from '../../core/state-root.js';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -91,7 +97,8 @@ export function getStatusIndicator(status: 'done' | 'ready' | 'blocked'): string
  * Excludes the archive directory and hidden directories.
  */
 export async function getAvailableChanges(projectRoot: string): Promise<string[]> {
-  const changesPath = path.join(projectRoot, 'openspec', 'changes');
+  /** Active-change discovery excludes archive and hidden directories by contract. */
+  const changesPath = getChangesDir(projectRoot);
   try {
     const entries = await fs.promises.readdir(changesPath, { withFileTypes: true });
     return entries
@@ -111,6 +118,7 @@ export async function validateChangeExists(
   changeName: string | undefined,
   projectRoot: string
 ): Promise<string> {
+  /** Validation stays directory-based so scaffolded changes work before proposal.md exists. */
   if (!changeName) {
     const available = await getAvailableChanges(projectRoot);
     if (available.length === 0) {
@@ -128,7 +136,7 @@ export async function validateChangeExists(
   }
 
   // Check directory existence directly
-  const changePath = path.join(projectRoot, 'openspec', 'changes', changeName);
+  const changePath = getChangeDir(projectRoot, changeName);
   const exists = fs.existsSync(changePath) && fs.statSync(changePath).isDirectory();
 
   if (!exists) {

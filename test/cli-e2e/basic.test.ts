@@ -3,7 +3,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
 import { runCLI, cliProjectRoot } from '../helpers/run-cli.js';
-import { AI_TOOLS } from '../../src/core/config.js';
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -39,19 +38,6 @@ describe('openspec CLI e2e basics', () => {
 
   });
 
-  it('shows dynamic tool ids in init help', async () => {
-    const result = await runCLI(['init', '--help']);
-    expect(result.exitCode).toBe(0);
-
-    const expectedTools = AI_TOOLS.filter((tool) => tool.available)
-      .map((tool) => tool.value)
-      .join(', ');
-    const normalizedOutput = result.stdout.replace(/\s+/g, ' ').trim();
-    expect(normalizedOutput).toContain(
-      `Use "all", "none", or a comma-separated list of: ${expectedTools}`
-    );
-  });
-
   it('reports the package version', async () => {
     const pkgRaw = await fs.readFile(path.join(cliProjectRoot, 'package.json'), 'utf-8');
     const pkg = JSON.parse(pkgRaw);
@@ -78,80 +64,42 @@ describe('openspec CLI e2e basics', () => {
     expect(result.stderr).toContain("Unknown item 'does-not-exist'");
   });
 
-  describe('init command non-interactive options', () => {
-    it('initializes with --tools all option', async () => {
-      const projectDir = await prepareFixture('tmp-init');
-      const emptyProjectDir = path.join(projectDir, '..', 'empty-project');
-      await fs.mkdir(emptyProjectDir, { recursive: true });
-
-      const codexHome = path.join(emptyProjectDir, '.codex');
-      const result = await runCLI(['init', '--tools', 'all'], {
-        cwd: emptyProjectDir,
-        env: { CODEX_HOME: codexHome },
-      });
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec Setup Complete');
-
-      // Check that skills were created for multiple tools
-      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/openspec-explore/SKILL.md');
-      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/openspec-explore/SKILL.md');
-      expect(await fileExists(claudeSkillPath)).toBe(true);
-      expect(await fileExists(cursorSkillPath)).toBe(true);
-    });
-
-    it('initializes with --tools list option', async () => {
+  describe('runtime-only compatibility', () => {
+    it('fails stale init entry points with a runtime-only error', async () => {
       const projectDir = await prepareFixture('tmp-init');
       const emptyProjectDir = path.join(projectDir, '..', 'empty-project');
       await fs.mkdir(emptyProjectDir, { recursive: true });
 
       const result = await runCLI(['init', '--tools', 'claude'], { cwd: emptyProjectDir });
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec Setup Complete');
-      expect(result.stdout).toContain('Claude Code');
-
-      // New init creates skills, not CLAUDE.md
-      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/openspec-explore/SKILL.md');
-      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/openspec-explore/SKILL.md');
-      expect(await fileExists(claudeSkillPath)).toBe(true);
-      expect(await fileExists(cursorSkillPath)).toBe(false); // Not selected
-    });
-
-    it('initializes with --tools none option', async () => {
-      const projectDir = await prepareFixture('tmp-init');
-      const emptyProjectDir = path.join(projectDir, '..', 'empty-project');
-      await fs.mkdir(emptyProjectDir, { recursive: true });
-
-      const result = await runCLI(['init', '--tools', 'none'], { cwd: emptyProjectDir });
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec Setup Complete');
-
-      // With --tools none, no tool skills should be created
-      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/openspec-explore/SKILL.md');
-      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/openspec-explore/SKILL.md');
-
-      expect(await fileExists(claudeSkillPath)).toBe(false);
-      expect(await fileExists(cursorSkillPath)).toBe(false);
-    });
-
-    it('returns error for invalid tool names', async () => {
-      const projectDir = await prepareFixture('tmp-init');
-      const emptyProjectDir = path.join(projectDir, '..', 'empty-project');
-      await fs.mkdir(emptyProjectDir, { recursive: true });
-
-      const result = await runCLI(['init', '--tools', 'invalid-tool'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('Invalid tool(s): invalid-tool');
-      expect(result.stderr).toContain('Available values:');
+      expect(result.stderr).toContain('runtime-only OpenSpec CLI');
+      expect(result.stderr).toContain('"init" command is not available');
     });
 
-    it('returns error when combining reserved keywords with explicit ids', async () => {
+    it('fails stale update entry points with a runtime-only error', async () => {
       const projectDir = await prepareFixture('tmp-init');
-      const emptyProjectDir = path.join(projectDir, '..', 'empty-project');
-      await fs.mkdir(emptyProjectDir, { recursive: true });
+      const result = await runCLI(['update'], { cwd: projectDir });
 
-      const result = await runCLI(['init', '--tools', 'all,claude'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('Cannot combine reserved values "all" or "none" with specific tool IDs');
+      expect(result.stderr).toContain('runtime-only OpenSpec CLI');
+      expect(result.stderr).toContain('"update" command is not available');
+    });
+
+    it('runtime commands do not create managed skills or prompt files', async () => {
+      const projectDir = await prepareFixture('tmp-init');
+
+      await runCLI(['list', '--json'], { cwd: projectDir, timeoutMs: 15000 });
+      await runCLI(['status', '--change', 'c1', '--json'], { cwd: projectDir, timeoutMs: 15000 });
+      await runCLI(['instructions', 'apply', '--change', 'c1', '--json'], {
+        cwd: projectDir,
+        timeoutMs: 15000,
+      });
+      await runCLI(['new', 'change', 'runtime-only-check'], { cwd: projectDir, timeoutMs: 15000 });
+
+      expect(await fileExists(path.join(projectDir, '.codex', 'skills'))).toBe(false);
+      expect(await fileExists(path.join(projectDir, '.claude', 'skills'))).toBe(false);
+      expect(await fileExists(path.join(projectDir, '.claude', 'commands', 'openspec'))).toBe(false);
+      expect(await fileExists(path.join(projectDir, 'openspec', 'AGENTS.md'))).toBe(false);
     });
   });
 });

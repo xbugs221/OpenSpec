@@ -33,10 +33,9 @@ describe('ListCommand', () => {
   describe('execute', () => {
     it('should handle missing openspec/changes directory', async () => {
       const listCommand = new ListCommand();
-      
-      await expect(listCommand.execute(tempDir, 'changes')).rejects.toThrow(
-        "No OpenSpec changes directory found. Run 'openspec init' first."
-      );
+
+      await expect(listCommand.execute(tempDir, 'changes')).resolves.toBeUndefined();
+      expect(logOutput).toEqual(['No active changes found.']);
     });
 
     it('should handle empty changes directory', async () => {

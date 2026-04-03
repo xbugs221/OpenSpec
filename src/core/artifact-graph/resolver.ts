@@ -1,9 +1,16 @@
+/**
+ * Purpose: resolve workflow schemas from project-local, user, and packaged
+ * locations while respecting the configurable project state root.
+ */
+
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getGlobalDataDir } from '../global-config.js';
 import { parseSchema, SchemaValidationError } from './schema.js';
 import type { SchemaYaml } from './types.js';
+import { getProjectSchemasDir } from '../state-root.js';
+
+export { getProjectSchemasDir } from '../state-root.js';
 
 /**
  * Error thrown when loading a schema fails.
@@ -33,16 +40,21 @@ export function getPackageSchemasDir(): string {
  * Gets the user's schema override directory path.
  */
 export function getUserSchemasDir(): string {
-  return path.join(getGlobalDataDir(), 'schemas');
-}
+  /**
+   * User override schemas stay under XDG-style data storage even after prompt
+   * generation features are removed.
+   */
+  const xdgDataHome = process.env.XDG_DATA_HOME;
+  if (xdgDataHome && xdgDataHome.trim()) {
+    return path.join(xdgDataHome, 'openspec', 'schemas');
+  }
 
-/**
- * Gets the project-local schemas directory path.
- * @param projectRoot - The project root directory
- * @returns The path to the project's schemas directory
- */
-export function getProjectSchemasDir(projectRoot: string): string {
-  return path.join(projectRoot, 'openspec', 'schemas');
+  const homeDir = process.env.HOME;
+  if (!homeDir || !homeDir.trim()) {
+    throw new Error('Cannot resolve user schema directory because HOME is not set.');
+  }
+
+  return path.join(homeDir, '.local', 'share', 'openspec', 'schemas');
 }
 
 /**

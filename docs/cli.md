@@ -1,12 +1,21 @@
 # CLI Reference
 
-The OpenSpec CLI (`openspec`) provides terminal commands for project setup, validation, status inspection, and management. These commands complement the AI slash commands (like `/opsx:propose`) documented in [Commands](commands.md).
+The OpenSpec CLI (`openspec`) is a runtime-only tool for inspecting change state, scaffolding changes, and generating artifact/apply instructions. It no longer initializes AI tools, refreshes prompts, or manages external skills/command files.
+
+The project state tree defaults to `openspec/`. To move it elsewhere, commit a repository-root locator:
+
+```json
+{
+  "stateRoot": ".planning/openspec"
+}
+```
+
+All runtime commands resolve `changes/`, `specs/`, `schemas/`, `config.yaml`, and `changes/archive/` from that `stateRoot`.
 
 ## Summary
 
 | Category | Commands | Purpose |
 |----------|----------|---------|
-| **Setup** | `init`, `update` | Initialize and update OpenSpec in your project |
 | **Browsing** | `list`, `view`, `show` | Explore changes and specs |
 | **Validation** | `validate` | Check changes and specs for issues |
 | **Lifecycle** | `archive` | Finalize completed changes |
@@ -14,6 +23,7 @@ The OpenSpec CLI (`openspec`) provides terminal commands for project setup, vali
 | **Schemas** | `schema init`, `schema fork`, `schema validate`, `schema which` | Create and manage custom workflows |
 | **Config** | `config` | View and modify settings |
 | **Utility** | `feedback`, `completion` | Feedback and shell integration |
+| **Retired** | `init`, `experimental`, `update` | Hidden compatibility entry points that fail with a runtime-only error |
 
 ---
 
@@ -27,7 +37,6 @@ These commands are interactive and designed for terminal use:
 
 | Command | Purpose |
 |---------|---------|
-| `openspec init` | Initialize project (interactive prompts) |
 | `openspec view` | Interactive dashboard |
 | `openspec config edit` | Open config in editor |
 | `openspec feedback` | Submit feedback via GitHub |
@@ -61,100 +70,36 @@ These options work with all commands:
 
 ---
 
-## Setup Commands
+## Runtime State Root
 
-### `openspec init`
+Use `.openspec-root.json` when the OpenSpec tree should live somewhere other than the default `openspec/` directory.
 
-Initialize OpenSpec in your project. Creates the folder structure and configures AI tool integrations.
-
-Default behavior uses global config defaults: profile `core`, delivery `both`, workflows `propose, explore, apply, archive`.
-
-```
-openspec init [path] [options]
+```json
+{
+  "stateRoot": ".planning/openspec"
+}
 ```
 
-**Arguments:**
+Constraints:
 
-| Argument | Required | Description |
-|----------|----------|-------------|
-| `path` | No | Target directory (default: current directory) |
+- `stateRoot` must be relative to the repository root.
+- Absolute paths are rejected.
+- Paths that escape the repository root are rejected.
+- Nested roots like `.planning/openspec` are supported.
 
-**Options:**
+## Retired Commands
 
-| Option | Description |
-|--------|-------------|
-| `--tools <list>` | Configure AI tools non-interactively. Use `all`, `none`, or comma-separated list |
-| `--force` | Auto-cleanup legacy files without prompting |
-| `--profile <profile>` | Override global profile for this init run (`core` or `custom`) |
+`openspec init`, `openspec experimental`, and `openspec update` are no longer part of the supported CLI surface. The hidden compatibility shims now fail with a runtime-only error instead of generating prompts, skills, or other tool-managed files.
 
-`--profile custom` uses whatever workflows are currently selected in global config (`openspec config profile`).
+Create the state tree explicitly in version control instead:
 
-**Supported tool IDs (`--tools`):** `amazon-q`, `antigravity`, `auggie`, `claude`, `cline`, `codex`, `codebuddy`, `continue`, `costrict`, `crush`, `cursor`, `factory`, `gemini`, `github-copilot`, `iflow`, `kilocode`, `kiro`, `opencode`, `pi`, `qoder`, `qwen`, `roocode`, `trae`, `windsurf`
-
-**Examples:**
-
-```bash
-# Interactive initialization
-openspec init
-
-# Initialize in a specific directory
-openspec init ./my-project
-
-# Non-interactive: configure for Claude and Cursor
-openspec init --tools claude,cursor
-
-# Configure for all supported tools
-openspec init --tools all
-
-# Override profile for this run
-openspec init --profile core
-
-# Skip prompts and auto-cleanup legacy files
-openspec init --force
-```
-
-**What it creates:**
-
-```
-openspec/
-├── specs/              # Your specifications (source of truth)
-├── changes/            # Proposed changes
-└── config.yaml         # Project configuration
-
-.claude/skills/         # Claude Code skills (if claude selected)
-.cursor/skills/         # Cursor skills (if cursor selected)
-.cursor/commands/       # Cursor OPSX commands (if delivery includes commands)
-... (other tool configs)
-```
-
----
-
-### `openspec update`
-
-Update OpenSpec instruction files after upgrading the CLI. Re-generates AI tool configuration files using your current global profile, selected workflows, and delivery mode.
-
-```
-openspec update [path] [options]
-```
-
-**Arguments:**
-
-| Argument | Required | Description |
-|----------|----------|-------------|
-| `path` | No | Target directory (default: current directory) |
-
-**Options:**
-
-| Option | Description |
-|--------|-------------|
-| `--force` | Force update even when files are up to date |
-
-**Example:**
-
-```bash
-# Update instruction files after npm upgrade
-npm update @fission-ai/openspec
-openspec update
+```text
+<stateRoot>/
+  config.yaml
+  specs/
+  schemas/
+  changes/
+    archive/
 ```
 
 ---

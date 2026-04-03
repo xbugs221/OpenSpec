@@ -1,3 +1,8 @@
+/**
+ * Purpose: archive completed changes and sync delta specs using paths derived
+ * from the resolved OpenSpec state root.
+ */
+
 import { promises as fs } from 'fs';
 import path from 'path';
 import { getTaskProgressForChange, formatTaskStatus } from '../utils/task-progress.js';
@@ -9,6 +14,7 @@ import {
   writeUpdatedSpec,
   type SpecUpdate,
 } from './specs-apply.js';
+import { getArchiveDir, getChangeDir, getChangesDir, getSpecsDir } from './state-root.js';
 
 /**
  * Recursively copy a directory. Used when fs.rename fails (e.g. EPERM on Windows).
@@ -52,16 +58,18 @@ export class ArchiveCommand {
     changeName?: string,
     options: { yes?: boolean; skipSpecs?: boolean; noValidate?: boolean; validate?: boolean } = {}
   ): Promise<void> {
+    /** Archive is still a runtime capability, so it follows the same state-root helpers. */
     const targetPath = '.';
-    const changesDir = path.join(targetPath, 'openspec', 'changes');
-    const archiveDir = path.join(changesDir, 'archive');
-    const mainSpecsDir = path.join(targetPath, 'openspec', 'specs');
+    const projectRoot = path.resolve(targetPath);
+    const changesDir = getChangesDir(projectRoot);
+    const archiveDir = getArchiveDir(projectRoot);
+    const mainSpecsDir = getSpecsDir(projectRoot);
 
     // Check if changes directory exists
     try {
       await fs.access(changesDir);
     } catch {
-      throw new Error("No OpenSpec changes directory found. Run 'openspec init' first.");
+      throw new Error('No OpenSpec changes directory found.');
     }
 
     // Get change name interactively if not provided
@@ -74,7 +82,7 @@ export class ArchiveCommand {
       changeName = selectedChange;
     }
 
-    const changeDir = path.join(changesDir, changeName);
+    const changeDir = getChangeDir(projectRoot, changeName);
 
     // Verify change exists
     try {

@@ -12,7 +12,9 @@ OpenSpec provides three levels of customization:
 
 ## Project Configuration
 
-The `openspec/config.yaml` file is the easiest way to customize OpenSpec for your team. It lets you:
+The project config lives at `<stateRoot>/config.yaml`, where `stateRoot` defaults to `openspec` and can be overridden with a repository-root `.openspec-root.json` locator. It is the easiest way to customize OpenSpec for your team.
+
+It lets you:
 
 - **Set a default schema** - Skip `--schema` on every command
 - **Inject project context** - AI sees your tech stack, conventions, etc.
@@ -20,14 +22,18 @@ The `openspec/config.yaml` file is the easiest way to customize OpenSpec for you
 
 ### Quick Setup
 
-```bash
-openspec init
+Commit a locator only when you need a non-default layout:
+
+```json
+{
+  "stateRoot": ".planning/openspec"
+}
 ```
 
-This walks you through creating a config interactively. Or create one manually:
+Then create the config manually:
 
 ```yaml
-# openspec/config.yaml
+# <stateRoot>/config.yaml
 schema: spec-driven
 
 context: |
@@ -86,18 +92,18 @@ When OpenSpec needs a schema, it checks in this order:
 
 1. CLI flag: `--schema <name>`
 2. Change metadata (`.openspec.yaml` in the change folder)
-3. Project config (`openspec/config.yaml`)
+3. Project config (`<stateRoot>/config.yaml`)
 4. Default (`spec-driven`)
 
 ---
 
 ## Custom Schemas
 
-When project config isn't enough, create your own schema with a completely custom workflow. Custom schemas live in your project's `openspec/schemas/` directory and are version-controlled with your code.
+When project config isn't enough, create your own schema with a completely custom workflow. Custom schemas live in your project's `<stateRoot>/schemas/` directory and are version-controlled with your code.
 
 ```text
 your-project/
-├── openspec/
+├── <stateRoot>/
 │   ├── config.yaml        # Project config
 │   ├── schemas/           # Custom schemas live here
 │   │   └── my-workflow/
@@ -115,12 +121,12 @@ The fastest way to customize is to fork a built-in schema:
 openspec schema fork spec-driven my-workflow
 ```
 
-This copies the entire `spec-driven` schema to `openspec/schemas/my-workflow/` where you can edit it freely.
+This copies the entire `spec-driven` schema to `<stateRoot>/schemas/my-workflow/` where you can edit it freely.
 
 **What you get:**
 
 ```text
-openspec/schemas/my-workflow/
+<stateRoot>/schemas/my-workflow/
 ├── schema.yaml           # Workflow definition
 └── templates/
     ├── proposal.md       # Template for proposal artifact

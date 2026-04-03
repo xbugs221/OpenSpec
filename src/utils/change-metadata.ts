@@ -1,3 +1,8 @@
+/**
+ * Purpose: read and write per-change metadata, including schema selection,
+ * independent of the concrete state-root layout.
+ */
+
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as yaml from 'yaml';
@@ -161,10 +166,14 @@ export function readChangeMetadata(
  */
 export function resolveSchemaForChange(
   changeDir: string,
-  explicitSchema?: string
+  explicitSchema?: string,
+  projectRoot?: string
 ): string {
-  // Derive project root from changeDir (changeDir is typically projectRoot/openspec/changes/change-name)
-  const projectRoot = path.resolve(changeDir, '../../..');
+  /**
+   * Callers that already know the project root should pass it explicitly so
+   * nested state roots do not require brittle path backtracking.
+   */
+  const resolvedProjectRoot = projectRoot ?? path.resolve(changeDir, '../../..');
 
   // 1. Explicit override wins
   if (explicitSchema) {
@@ -173,7 +182,7 @@ export function resolveSchemaForChange(
 
   // 2. Try reading from metadata
   try {
-    const metadata = readChangeMetadata(changeDir, projectRoot);
+    const metadata = readChangeMetadata(changeDir, resolvedProjectRoot);
     if (metadata?.schema) {
       return metadata.schema;
     }
@@ -183,7 +192,7 @@ export function resolveSchemaForChange(
 
   // 3. Try reading from project config
   try {
-    const config = readProjectConfig(projectRoot);
+    const config = readProjectConfig(resolvedProjectRoot);
     if (config?.schema) {
       return config.schema;
     }

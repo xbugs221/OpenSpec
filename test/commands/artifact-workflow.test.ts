@@ -71,6 +71,15 @@ describe('artifact-workflow CLI commands', () => {
     return changeDir;
   }
 
+  async function writeNestedStateRootLocator(): Promise<void> {
+    await fs.writeFile(
+      path.join(tempDir, '.openspec-root.json'),
+      JSON.stringify({ stateRoot: '.planning/openspec' }, null, 2)
+    );
+    changesDir = path.join(tempDir, '.planning', 'openspec', 'changes');
+    await fs.mkdir(changesDir, { recursive: true });
+  }
+
   describe('status command', () => {
     it('shows status for scaffolded change without proposal.md', async () => {
       // Create empty change directory (no proposal.md)
@@ -108,6 +117,7 @@ describe('artifact-workflow CLI commands', () => {
 
       const result = await runCLI(['status', '--change', 'json-change', '--json'], {
         cwd: tempDir,
+        timeoutMs: 15000,
       });
       expect(result.exitCode).toBe(0);
 
@@ -369,6 +379,21 @@ describe('artifact-workflow CLI commands', () => {
       const result = await runCLI(['new', 'change'], { cwd: tempDir });
       expect(result.exitCode).toBe(1);
     });
+
+    it('creates a new change under a nested state root', async () => {
+      await writeNestedStateRootLocator();
+
+      const result = await runCLI(['new', 'change', 'nested-feature'], {
+        cwd: tempDir,
+        timeoutMs: 15000,
+      });
+      expect(result.exitCode).toBe(0);
+
+      const changeDir = path.join(tempDir, '.planning', 'openspec', 'changes', 'nested-feature');
+      const stat = await fs.stat(changeDir);
+      expect(stat.isDirectory()).toBe(true);
+      expect(normalizePaths(getOutput(result))).toContain('.planning/openspec/changes/nested-feature/');
+    });
   });
 
   describe('instructions apply command', () => {
@@ -412,6 +437,43 @@ describe('artifact-workflow CLI commands', () => {
       expect(json.state).toBe('ready');
       expect(json.contextFiles).toBeDefined();
       expect(typeof json.contextFiles).toBe('object');
+    });
+
+    it('resolves list, status, and instructions paths from a nested state root', async () => {
+      await writeNestedStateRootLocator();
+      const changeDir = await createTestChange('nested-runtime', ['proposal', 'design', 'specs', 'tasks']);
+      await fs.writeFile(path.join(changeDir, 'tasks.md'), '## Tasks\n- [ ] Verify nested root\n');
+
+      const listResult = await runCLI(['list', '--json'], { cwd: tempDir, timeoutMs: 15000 });
+      expect(listResult.exitCode).toBe(0);
+      const listJson = JSON.parse(listResult.stdout);
+      expect(listJson.changes).toHaveLength(1);
+      expect(listJson.changes[0].name).toBe('nested-runtime');
+
+      const statusResult = await runCLI(['status', '--change', 'nested-runtime', '--json'], {
+        cwd: tempDir,
+        timeoutMs: 15000,
+      });
+      expect(statusResult.exitCode).toBe(0);
+      const statusJson = JSON.parse(statusResult.stdout);
+      expect(statusJson.changeName).toBe('nested-runtime');
+
+      const applyResult = await runCLI(['instructions', 'apply', '--change', 'nested-runtime', '--json'], {
+        cwd: tempDir,
+        timeoutMs: 15000,
+      });
+      expect(applyResult.exitCode).toBe(0);
+      const applyJson = JSON.parse(applyResult.stdout);
+      expect(normalizePaths(applyJson.changeDir)).toContain('.planning/openspec/changes/nested-runtime');
+      expect(normalizePaths(applyJson.contextFiles.proposal)).toContain(
+        '.planning/openspec/changes/nested-runtime/proposal.md'
+      );
+      expect(normalizePaths(applyJson.contextFiles.design)).toContain(
+        '.planning/openspec/changes/nested-runtime/design.md'
+      );
+      expect(normalizePaths(applyJson.contextFiles.specs)).toContain(
+        '.planning/openspec/changes/nested-runtime/specs'
+      );
     });
 
     it('shows schema instruction from apply block', async () => {
@@ -593,81 +655,23 @@ artifacts:
     });
   });
 
-  describe('experimental command (deprecated alias for init)', () => {
-    it('shows deprecation notice', async () => {
+  describe('experimental command (retired alias)', () => {
+    it('fails with a runtime-only error', async () => {
       const result = await runCLI(['experimental', '--tool', 'claude'], { cwd: tempDir });
-      // May succeed or fail depending on setup, but should show deprecation notice
-      const output = getOutput(result);
-      expect(output).toContain('deprecated');
-    });
-
-    it('errors for unknown tool', async () => {
-      const result = await runCLI(['experimental', '--tool', 'unknown-tool'], {
-        cwd: tempDir,
-      });
       expect(result.exitCode).toBe(1);
       const output = getOutput(result);
-      expect(output).toContain('Invalid tool(s): unknown-tool');
+      expect(output).toContain('runtime-only OpenSpec CLI');
+      expect(output).toContain('"experimental" command is not available');
     });
 
-    it('errors for tool without skillsDir', async () => {
-      // Using 'agents' which doesn't have skillsDir configured
-      const result = await runCLI(['experimental', '--tool', 'agents'], {
-        cwd: tempDir,
-      });
-      expect(result.exitCode).toBe(1);
-      const output = getOutput(result);
-      expect(output).toContain('Invalid tool(s): agents');
-    });
-
-    it('creates skills for Claude tool', async () => {
-      const result = await runCLI(['experimental', '--tool', 'claude'], {
-        cwd: tempDir,
-      });
-      expect(result.exitCode).toBe(0);
-      const output = normalizePaths(getOutput(result));
-      expect(output).toContain('Claude Code');
-      expect(output).toContain('.claude/');
-
-      // Verify skill files were created
-      const skillFile = path.join(tempDir, '.claude', 'skills', 'openspec-explore', 'SKILL.md');
-      const stat = await fs.stat(skillFile);
-      expect(stat.isFile()).toBe(true);
-    });
-
-    it('creates skills for Cursor tool', async () => {
+    it('fails before attempting any tool-specific generation', async () => {
       const result = await runCLI(['experimental', '--tool', 'cursor'], {
         cwd: tempDir,
       });
-      expect(result.exitCode).toBe(0);
-      const output = normalizePaths(getOutput(result));
-      expect(output).toContain('Cursor');
-      expect(output).toContain('.cursor/');
-
-      // Verify skill files were created
-      const skillFile = path.join(tempDir, '.cursor', 'skills', 'openspec-explore', 'SKILL.md');
-      const stat = await fs.stat(skillFile);
-      expect(stat.isFile()).toBe(true);
-
-      // Verify commands were created with Cursor format
-      const commandFile = path.join(tempDir, '.cursor', 'commands', 'opsx-explore.md');
-      const content = await fs.readFile(commandFile, 'utf-8');
-      expect(content).toContain('name: /opsx-explore');
-    });
-
-    it('creates skills for Windsurf tool', async () => {
-      const result = await runCLI(['experimental', '--tool', 'windsurf'], {
-        cwd: tempDir,
-      });
-      expect(result.exitCode).toBe(0);
-      const output = normalizePaths(getOutput(result));
-      expect(output).toContain('Windsurf');
-      expect(output).toContain('.windsurf/');
-
-      // Verify skill files were created
-      const skillFile = path.join(tempDir, '.windsurf', 'skills', 'openspec-explore', 'SKILL.md');
-      const stat = await fs.stat(skillFile);
-      expect(stat.isFile()).toBe(true);
+      expect(result.exitCode).toBe(1);
+      const output = getOutput(result);
+      expect(output).toContain('runtime-only OpenSpec CLI');
+      expect(await fs.access(path.join(tempDir, '.cursor')).then(() => true).catch(() => false)).toBe(false);
     });
   });
 

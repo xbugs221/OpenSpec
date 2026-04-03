@@ -1,9 +1,14 @@
+/**
+ * Purpose: list active changes or specs from the resolved OpenSpec state tree.
+ */
+
 import { promises as fs } from 'fs';
 import path from 'path';
 import { getTaskProgressForChange, formatTaskStatus } from '../utils/task-progress.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { MarkdownParser } from './parsers/markdown-parser.js';
+import { getChangesDir, getSpecsDir } from './state-root.js';
 
 interface ChangeInfo {
   name: string;
@@ -22,6 +27,7 @@ interface ListOptions {
  * Falls back to the directory's own mtime if no files are found.
  */
 async function getLastModified(dirPath: string): Promise<Date> {
+  /** Walk the directory tree because a change's meaningful freshness is tied to its files. */
   let latest: Date | null = null;
 
   async function walk(dir: string): Promise<void> {
@@ -54,6 +60,7 @@ async function getLastModified(dirPath: string): Promise<Date> {
  * Format a date as relative time (e.g., "2 hours ago", "3 days ago")
  */
 function formatRelativeTime(date: Date): string {
+  /** Keep human output compact because list is primarily a scanning command. */
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSecs = Math.floor(diffMs / 1000);
@@ -76,16 +83,21 @@ function formatRelativeTime(date: Date): string {
 
 export class ListCommand {
   async execute(targetPath: string = '.', mode: 'changes' | 'specs' = 'changes', options: ListOptions = {}): Promise<void> {
+    /** Resolve paths once so both default and nested state roots share the same logic. */
     const { sort = 'recent', json = false } = options;
 
     if (mode === 'changes') {
-      const changesDir = path.join(targetPath, 'openspec', 'changes');
+      const changesDir = getChangesDir(targetPath);
 
-      // Check if changes directory exists
       try {
         await fs.access(changesDir);
       } catch {
-        throw new Error("No OpenSpec changes directory found. Run 'openspec init' first.");
+        if (json) {
+          console.log(JSON.stringify({ changes: [] }, null, 2));
+        } else {
+          console.log('No active changes found.');
+        }
+        return;
       }
 
       // Get all directories in changes (excluding archive)
@@ -152,7 +164,7 @@ export class ListCommand {
     }
 
     // specs mode
-    const specsDir = path.join(targetPath, 'openspec', 'specs');
+    const specsDir = getSpecsDir(targetPath);
     try {
       await fs.access(specsDir);
     } catch {

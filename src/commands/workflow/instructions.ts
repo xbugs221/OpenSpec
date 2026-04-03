@@ -5,6 +5,11 @@
  * Includes both artifact instructions and apply instructions.
  */
 
+/**
+ * Purpose: emit artifact and apply instructions from schema-aware runtime state
+ * rooted at the configurable OpenSpec state directory.
+ */
+
 import ora from 'ora';
 import path from 'path';
 import * as fs from 'fs';
@@ -20,6 +25,7 @@ import {
   type TaskItem,
   type ApplyInstructions,
 } from './shared.js';
+import { getChangeDir } from '../../core/state-root.js';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -215,6 +221,7 @@ export function printInstructionsText(instructions: ArtifactInstructions, isBloc
  * Parses tasks.md content and extracts task items with their completion status.
  */
 function parseTasksFile(content: string): TaskItem[] {
+  /** Parse markdown checkboxes because tasks.md is the apply-phase source of truth. */
   const tasks: TaskItem[] = [];
   const lines = content.split('\n');
   let taskIndex = 0;
@@ -242,6 +249,7 @@ function parseTasksFile(content: string): TaskItem[] {
  * Supports glob patterns (e.g., "specs/*.md") by verifying at least one matching file exists.
  */
 function artifactOutputExists(changeDir: string, generates: string): boolean {
+  /** Globs are checked conservatively: at least one matching file marks the artifact done. */
   // Normalize the generates path to use platform-specific separators
   const normalizedGenerates = generates.split('/').join(path.sep);
   const fullPath = path.join(changeDir, normalizedGenerates);
@@ -309,9 +317,10 @@ export async function generateApplyInstructions(
   changeName: string,
   schemaName?: string
 ): Promise<ApplyInstructions> {
+  /** The change directory comes from the shared helper to support nested state roots. */
   // loadChangeContext will auto-detect schema from metadata if not provided
   const context = loadChangeContext(projectRoot, changeName, schemaName);
-  const changeDir = path.join(projectRoot, 'openspec', 'changes', changeName);
+  const changeDir = getChangeDir(projectRoot, changeName);
 
   // Get the full schema to access the apply phase configuration
   const schema = resolveSchema(context.schemaName, projectRoot);

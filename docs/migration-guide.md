@@ -2,6 +2,41 @@
 
 This guide helps you transition from the legacy OpenSpec workflow to OPSX. The migration is designed to be smooth—your existing work is preserved, and the new system offers more flexibility.
 
+## Runtime-Only State Root Migration
+
+OpenSpec now ships as a runtime-only CLI. It no longer uses `openspec init` or `openspec update` to generate external skills, prompts, or tool-managed files.
+
+To move an existing repository from the default `openspec/` layout to `.planning/openspec/`, use an explicit commit-driven migration:
+
+1. Add a repository-root locator:
+
+```json
+{
+  "stateRoot": ".planning/openspec"
+}
+```
+
+2. Move the entire state tree:
+
+```bash
+mkdir -p .planning
+mv openspec .planning/openspec
+```
+
+3. Verify the runtime commands against the new location:
+
+```bash
+openspec list --json
+openspec status --change <change-name> --json
+openspec instructions apply --change <change-name> --json
+```
+
+Notes:
+
+- `stateRoot` must stay inside the repository.
+- Absolute paths and `../` escapes are rejected.
+- `config.yaml`, `specs/`, `schemas/`, `changes/`, and `changes/archive/` all move together under the configured root.
+
 ## What's Changing?
 
 OPSX replaces the old phase-locked workflow with a fluid, action-based approach. Here's the key shift:

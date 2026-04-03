@@ -1,10 +1,6 @@
 import { Command } from 'commander';
 import { createRequire } from 'module';
 import ora from 'ora';
-import path from 'path';
-import { promises as fs } from 'fs';
-import { AI_TOOLS } from '../core/config.js';
-import { UpdateCommand } from '../core/update.js';
 import { ListCommand } from '../core/list.js';
 import { ArchiveCommand } from '../core/archive.js';
 import { ViewCommand } from '../core/view.js';
@@ -35,6 +31,21 @@ import { maybeShowTelemetryNotice, trackCommand, shutdown } from '../telemetry/i
 const program = new Command();
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');
+
+/**
+ * Fail deprecated distribution commands with a runtime-only message while
+ * keeping them hidden from the public CLI surface.
+ */
+function failRuntimeOnlyCommand(commandName: string): never {
+  /**
+   * Hidden shims keep stale entry points explicit and actionable instead of
+   * falling back to a generic "unknown command" error.
+   */
+  throw new Error(
+    `The "${commandName}" command is not available in the runtime-only OpenSpec CLI. ` +
+      `Use the repository state tree directly and keep tool-specific prompts or skills outside this package.`
+  );
+}
 
 /**
  * Get the full command path for nested commands.
@@ -87,43 +98,16 @@ program.hook('postAction', async () => {
   await shutdown();
 });
 
-const availableToolIds = AI_TOOLS.filter((tool) => tool.skillsDir).map((tool) => tool.value);
-const toolsOptionDescription = `Configure AI tools non-interactively. Use "all", "none", or a comma-separated list of: ${availableToolIds.join(', ')}`;
-
 program
-  .command('init [path]')
-  .description('Initialize OpenSpec in your project')
-  .option('--tools <tools>', toolsOptionDescription)
-  .option('--force', 'Auto-cleanup legacy files without prompting')
-  .option('--profile <profile>', 'Override global config profile (core or custom)')
-  .action(async (targetPath = '.', options?: { tools?: string; force?: boolean; profile?: string }) => {
+  .command('init [path]', { hidden: true })
+  .description('Retired setup command')
+  .option('--tools <tools>', 'Ignored legacy option')
+  .option('--force', 'Ignored legacy option')
+  .option('--profile <profile>', 'Ignored legacy option')
+  .allowUnknownOption(true)
+  .action(() => {
     try {
-      // Validate that the path is a valid directory
-      const resolvedPath = path.resolve(targetPath);
-
-      try {
-        const stats = await fs.stat(resolvedPath);
-        if (!stats.isDirectory()) {
-          throw new Error(`Path "${targetPath}" is not a directory`);
-        }
-      } catch (error: any) {
-        if (error.code === 'ENOENT') {
-          // Directory doesn't exist, but we can create it
-          console.log(`Directory "${targetPath}" doesn't exist, it will be created.`);
-        } else if (error.message && error.message.includes('not a directory')) {
-          throw error;
-        } else {
-          throw new Error(`Cannot access path "${targetPath}": ${error.message}`);
-        }
-      }
-
-      const { InitCommand } = await import('../core/init.js');
-      const initCommand = new InitCommand({
-        tools: options?.tools,
-        force: options?.force,
-        profile: options?.profile,
-      });
-      await initCommand.execute(targetPath);
+      failRuntimeOnlyCommand('init');
     } catch (error) {
       console.log(); // Empty line for spacing
       ora().fail(`Error: ${(error as Error).message}`);
@@ -134,18 +118,13 @@ program
 // Hidden alias: 'experimental' -> 'init' for backwards compatibility
 program
   .command('experimental', { hidden: true })
-  .description('Alias for init (deprecated)')
-  .option('--tool <tool-id>', 'Target AI tool (maps to --tools)')
-  .option('--no-interactive', 'Disable interactive prompts')
-  .action(async (options?: { tool?: string; noInteractive?: boolean }) => {
+  .description('Retired init alias')
+  .option('--tool <tool-id>', 'Ignored legacy option')
+  .option('--no-interactive', 'Ignored legacy option')
+  .allowUnknownOption(true)
+  .action(() => {
     try {
-      console.log('Note: "openspec experimental" is deprecated. Use "openspec init" instead.');
-      const { InitCommand } = await import('../core/init.js');
-      const initCommand = new InitCommand({
-        tools: options?.tool,
-        interactive: options?.noInteractive === true ? false : undefined,
-      });
-      await initCommand.execute('.');
+      failRuntimeOnlyCommand('experimental');
     } catch (error) {
       console.log();
       ora().fail(`Error: ${(error as Error).message}`);
@@ -154,14 +133,13 @@ program
   });
 
 program
-  .command('update [path]')
-  .description('Update OpenSpec instruction files')
-  .option('--force', 'Force update even when tools are up to date')
-  .action(async (targetPath = '.', options?: { force?: boolean }) => {
+  .command('update [path]', { hidden: true })
+  .description('Retired distribution refresh command')
+  .option('--force', 'Ignored legacy option')
+  .allowUnknownOption(true)
+  .action(() => {
     try {
-      const resolvedPath = path.resolve(targetPath);
-      const updateCommand = new UpdateCommand({ force: options?.force });
-      await updateCommand.execute(resolvedPath);
+      failRuntimeOnlyCommand('update');
     } catch (error) {
       console.log(); // Empty line for spacing
       ora().fail(`Error: ${(error as Error).message}`);

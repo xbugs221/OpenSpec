@@ -1,7 +1,13 @@
+/**
+ * Purpose: validate and scaffold change directories under the resolved project
+ * state root.
+ */
+
 import path from 'path';
 import { FileSystemUtils } from './file-system.js';
 import { writeChangeMetadata, validateSchemaName } from './change-metadata.js';
 import { readProjectConfig } from '../core/project-config.js';
+import { getChangeDir } from '../core/state-root.js';
 
 const DEFAULT_SCHEMA = 'spec-driven';
 
@@ -46,6 +52,7 @@ export interface ValidationResult {
  * validateChangeName('Add-Auth') // { valid: false, error: '...' }
  */
 export function validateChangeName(name: string): ValidationResult {
+  /** Prevent path traversal and keep change directory names predictable. */
   // Pattern: starts with lowercase letter, followed by lowercase letters/numbers,
   // optionally followed by hyphen + lowercase letters/numbers (repeatable)
   const kebabCasePattern = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
@@ -114,6 +121,7 @@ export async function createChange(
   name: string,
   options: CreateChangeOptions = {}
 ): Promise<CreateChangeResult> {
+  /** Resolve schema before creating files so invalid requests fail without side effects. */
   // Validate the name first
   const validation = validateChangeName(name);
   if (!validation.valid) {
@@ -139,7 +147,7 @@ export async function createChange(
   validateSchemaName(schemaName, projectRoot);
 
   // Build the change directory path
-  const changeDir = path.join(projectRoot, 'openspec', 'changes', name);
+  const changeDir = getChangeDir(projectRoot, name);
 
   // Check if change already exists
   if (await FileSystemUtils.directoryExists(changeDir)) {
