@@ -26,7 +26,6 @@ import {
   type SchemasOptions,
   type NewChangeOptions,
 } from '../commands/workflow/index.js';
-import { maybeShowTelemetryNotice, trackCommand, shutdown } from '../telemetry/index.js';
 
 const program = new Command();
 const require = createRequire(import.meta.url);
@@ -47,26 +46,6 @@ function failRuntimeOnlyCommand(commandName: string): never {
   );
 }
 
-/**
- * Get the full command path for nested commands.
- * For example: 'change show' -> 'change:show'
- */
-function getCommandPath(command: Command): string {
-  const names: string[] = [];
-  let current: Command | null = command;
-
-  while (current) {
-    const name = current.name();
-    // Skip the root 'openspec' command
-    if (name && name !== 'openspec') {
-      names.unshift(name);
-    }
-    current = current.parent;
-  }
-
-  return names.join(':') || 'openspec';
-}
-
 program
   .name('openspec')
   .description('AI-native system for spec-driven development')
@@ -75,27 +54,15 @@ program
 // Global options
 program.option('--no-color', 'Disable color output');
 
-// Apply global flags and telemetry before any command runs
+// Apply global flags before any command runs
 // Note: preAction receives (thisCommand, actionCommand) where:
 // - thisCommand: the command where hook was added (root program)
 // - actionCommand: the command actually being executed (subcommand)
-program.hook('preAction', async (thisCommand, actionCommand) => {
+program.hook('preAction', async thisCommand => {
   const opts = thisCommand.opts();
   if (opts.color === false) {
     process.env.NO_COLOR = '1';
   }
-
-  // Show first-run telemetry notice (if not seen)
-  await maybeShowTelemetryNotice();
-
-  // Track command execution (use actionCommand to get the actual subcommand)
-  const commandPath = getCommandPath(actionCommand);
-  await trackCommand(commandPath, version);
-});
-
-// Shutdown telemetry after command completes
-program.hook('postAction', async () => {
-  await shutdown();
 });
 
 program

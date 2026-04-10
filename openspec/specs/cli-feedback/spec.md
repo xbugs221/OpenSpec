@@ -106,14 +106,13 @@ The system SHALL include relevant metadata in the GitHub Issue body.
 
 ### Requirement: Feedback always works
 
-The system SHALL allow feedback submission regardless of telemetry settings.
+The system SHALL allow feedback submission regardless of unrelated local configuration settings.
 
-#### Scenario: Feedback with telemetry disabled
+#### Scenario: Feedback with local config present
 
-- **WHEN** user has disabled telemetry via `OPENSPEC_TELEMETRY=0`
+- **WHEN** the user has existing global configuration
 - **AND** user runs `openspec feedback "message"`
 - **THEN** the feedback is still submitted via `gh` CLI
-- **AND** telemetry events are not sent
 
 #### Scenario: Feedback in CI environment
 
@@ -190,4 +189,3 @@ The system SHALL provide shell completions for the feedback command.
 
 - **WHEN** user types `openspec feedback "msg" --<TAB>`
 - **THEN** the shell suggests available flags (`--body`)
-

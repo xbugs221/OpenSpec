@@ -732,10 +732,10 @@ openspec config path
 openspec config list
 
 # Get a specific value
-openspec config get telemetry.enabled
+openspec config get profile
 
 # Set a value
-openspec config set telemetry.enabled false
+openspec config set profile custom
 
 # Set a string value explicitly
 openspec config set user.name "My Name" --string
