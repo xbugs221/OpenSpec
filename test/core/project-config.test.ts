@@ -257,7 +257,7 @@ rules:
 
         expect(config).toBeNull();
         expect(consoleWarnSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Failed to parse openspec/config.yaml'),
+          expect.stringContaining(`Failed to parse ${path.join(tempDir, 'openspec', 'config.yaml')}`),
           expect.anything()
         );
       });
@@ -579,7 +579,7 @@ rules:
       const message = suggestSchemas('wrong-schema', availableSchemas);
 
       expect(message).toContain(
-        "Fix: Edit openspec/config.yaml and change 'schema: wrong-schema' to a valid schema name"
+        `Fix: Edit ${path.join(process.cwd(), 'openspec', 'config.yaml')} and change 'schema: wrong-schema' to a valid schema name`
       );
     });
 
