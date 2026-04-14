@@ -6,19 +6,17 @@ This guide explains how OpenSpec works after you've installed and initialized it
 
 OpenSpec helps you and your AI coding assistant agree on what to build before any code is written.
 
-**Default quick path (core profile):**
+**Default quick path:**
 
 ```text
 /opsx:propose ──► /opsx:apply ──► /opsx:archive
 ```
 
-**Expanded path (custom workflow selection):**
+**Expanded path:**
 
 ```text
 /opsx:new ──► /opsx:ff or /opsx:continue ──► /opsx:apply ──► /opsx:verify ──► /opsx:archive
 ```
-
-The default global profile is `core`, which includes `propose`, `explore`, `apply`, and `archive`. You can enable the expanded workflow commands with `openspec config profile` and then `openspec update`.
 
 ## What OpenSpec Creates
 
@@ -133,7 +131,7 @@ AI:  Created openspec/changes/add-dark-mode/
      Ready for implementation!
 ```
 
-If you've enabled the expanded workflow profile, you can also do this as two steps: `/opsx:new` then `/opsx:ff` (or `/opsx:continue` incrementally).
+You can also do this as two steps: `/opsx:new` then `/opsx:ff` (or `/opsx:continue` incrementally).
 
 ### 2. What Gets Created
 

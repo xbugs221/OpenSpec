@@ -64,41 +64,41 @@ describe('openspec CLI e2e basics', () => {
     expect(result.stderr).toContain("Unknown item 'does-not-exist'");
   });
 
-  describe('runtime-only compatibility', () => {
-    it('fails stale init entry points with a runtime-only error', async () => {
+  describe('CLI-only init and update', () => {
+    it('rejects removed legacy init distribution flags', async () => {
       const projectDir = await prepareFixture('tmp-init');
       const emptyProjectDir = path.join(projectDir, '..', 'empty-project');
       await fs.mkdir(emptyProjectDir, { recursive: true });
 
       const result = await runCLI(['init', '--tools', 'claude'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('runtime-only OpenSpec CLI');
-      expect(result.stderr).toContain('"init" command is not available');
+      expect(result.stderr).toContain('--tools option is no longer supported');
     });
 
-    it('fails stale update entry points with a runtime-only error', async () => {
+    it('initializes only OpenSpec-owned files', async () => {
       const projectDir = await prepareFixture('tmp-init');
+      const emptyProjectDir = path.join(projectDir, '..', 'cli-only-project');
+      await fs.mkdir(path.join(emptyProjectDir, '.claude'), { recursive: true });
+
+      const result = await runCLI(['init'], { cwd: emptyProjectDir });
+
+      expect(result.exitCode).toBe(0);
+      expect(await fileExists(path.join(emptyProjectDir, 'openspec', 'config.yaml'))).toBe(true);
+      expect(await fileExists(path.join(emptyProjectDir, '.claude'))).toBe(true);
+      expect(await fileExists(path.join(emptyProjectDir, '.claude', 'skills'))).toBe(false);
+      expect(await fileExists(path.join(emptyProjectDir, '.codex', 'prompts'))).toBe(false);
+    });
+
+    it('update does not mutate managed skills or prompt files', async () => {
+      const projectDir = await prepareFixture('tmp-init');
+      await fs.mkdir(path.join(projectDir, '.codex', 'prompts'), { recursive: true });
+      await fs.writeFile(path.join(projectDir, '.codex', 'prompts', 'manual.md'), 'manual');
+
       const result = await runCLI(['update'], { cwd: projectDir });
 
-      expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('runtime-only OpenSpec CLI');
-      expect(result.stderr).toContain('"update" command is not available');
-    });
-
-    it('runtime commands do not create managed skills or prompt files', async () => {
-      const projectDir = await prepareFixture('tmp-init');
-
-      await runCLI(['list', '--json'], { cwd: projectDir, timeoutMs: 15000 });
-      await runCLI(['status', '--change', 'c1', '--json'], { cwd: projectDir, timeoutMs: 15000 });
-      await runCLI(['instructions', 'apply', '--change', 'c1', '--json'], {
-        cwd: projectDir,
-        timeoutMs: 15000,
-      });
-      await runCLI(['new', 'change', 'runtime-only-check'], { cwd: projectDir, timeoutMs: 15000 });
-
-      expect(await fileExists(path.join(projectDir, '.codex', 'skills'))).toBe(false);
+      expect(result.exitCode).toBe(0);
+      expect(await fileExists(path.join(projectDir, '.codex', 'prompts', 'manual.md'))).toBe(true);
       expect(await fileExists(path.join(projectDir, '.claude', 'skills'))).toBe(false);
-      expect(await fileExists(path.join(projectDir, '.claude', 'commands', 'openspec'))).toBe(false);
       expect(await fileExists(path.join(projectDir, 'openspec', 'AGENTS.md'))).toBe(false);
     });
   });

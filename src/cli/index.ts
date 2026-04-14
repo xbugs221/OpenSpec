@@ -4,6 +4,8 @@ import ora from 'ora';
 import { ListCommand } from '../core/list.js';
 import { ArchiveCommand } from '../core/archive.js';
 import { ViewCommand } from '../core/view.js';
+import { InitCommand } from '../core/init.js';
+import { UpdateCommand } from '../core/update.js';
 import { registerSpecCommand } from '../commands/spec.js';
 import { ChangeCommand } from '../commands/change.js';
 import { ValidateCommand } from '../commands/validate.js';
@@ -66,17 +68,18 @@ program.hook('preAction', async thisCommand => {
 });
 
 program
-  .command('init [path]', { hidden: true })
-  .description('Retired setup command')
-  .option('--tools <tools>', 'Ignored legacy option')
-  .option('--force', 'Ignored legacy option')
-  .option('--profile <profile>', 'Ignored legacy option')
+  .command('init [path]')
+  .description('Initialize OpenSpec project state')
+  .option('--tools <tools>', 'Removed legacy option')
+  .option('--force', 'Refresh OpenSpec-owned defaults')
+  .option('--profile <profile>', 'Removed legacy option')
   .allowUnknownOption(true)
-  .action(() => {
+  .action(async (targetPath = '.', options: { tools?: string; force?: boolean; profile?: string }) => {
     try {
-      failRuntimeOnlyCommand('init');
+      const initCommand = new InitCommand(options);
+      await initCommand.execute(targetPath);
     } catch (error) {
-      console.log(); // Empty line for spacing
+      console.log();
       ora().fail(`Error: ${(error as Error).message}`);
       process.exit(1);
     }
@@ -100,15 +103,16 @@ program
   });
 
 program
-  .command('update [path]', { hidden: true })
-  .description('Retired distribution refresh command')
-  .option('--force', 'Ignored legacy option')
+  .command('update [path]')
+  .description('Refresh OpenSpec-owned project state')
+  .option('--force', 'Rewrite OpenSpec-owned defaults')
   .allowUnknownOption(true)
-  .action(() => {
+  .action(async (targetPath = '.', options: { force?: boolean }) => {
     try {
-      failRuntimeOnlyCommand('update');
+      const updateCommand = new UpdateCommand(options);
+      await updateCommand.execute(targetPath);
     } catch (error) {
-      console.log(); // Empty line for spacing
+      console.log();
       ora().fail(`Error: ${(error as Error).message}`);
       process.exit(1);
     }

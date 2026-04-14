@@ -100,10 +100,8 @@ openspec init
 
 Now tell your AI: `/opsx:propose <what-you-want-to-build>`
 
-If you want the expanded workflow (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:verify`, `/opsx:sync`, `/opsx:bulk-archive`, `/opsx:onboard`), select it with `openspec config profile` and apply with `openspec update`.
-
 > [!NOTE]
-> Not sure if your tool is supported? [View the full list](docs/supported-tools.md) – we support 20+ tools and growing.
+> OpenSpec no longer manages tool-specific skills or prompts. [See the runtime boundary](docs/supported-tools.md).
 >
 > Also works with pnpm, yarn, bun, and nix. [See installation options](docs/installation.md).
 
@@ -111,9 +109,9 @@ If you want the expanded workflow (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/
 
 → **[Getting Started](docs/getting-started.md)**: first steps<br>
 → **[Workflows](docs/workflows.md)**: combos and patterns<br>
-→ **[Commands](docs/commands.md)**: slash commands & skills<br>
+→ **[Commands](docs/commands.md)**: slash commands<br>
 → **[CLI](docs/cli.md)**: terminal reference<br>
-→ **[Supported Tools](docs/supported-tools.md)**: tool integrations & install paths<br>
+→ **[Supported Tools](docs/supported-tools.md)**: runtime boundary<br>
 → **[Concepts](docs/concepts.md)**: how it all fits<br>
 → **[Multi-Language](docs/multi-language.md)**: multi-language support<br>
 → **[Customization](docs/customization.md)**: make it yours
@@ -126,7 +124,7 @@ AI coding assistants are powerful but unpredictable when requirements live only 
 - **Agree before you build** — human and AI align on specs before code gets written
 - **Stay organized** — each change gets its own folder with proposal, specs, design, and tasks
 - **Work fluidly** — update any artifact anytime, no rigid phase gates
-- **Use your tools** — works with 20+ AI assistants via slash commands
+- **Use your tools** — OpenSpec manages specs and state while you keep your own agent instructions
 
 ### How we compare
 

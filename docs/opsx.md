@@ -63,9 +63,9 @@ You're "in planning phase", then "in implementation phase", then "done". But rea
 openspec init
 ```
 
-This creates skills in `.claude/skills/` (or equivalent) that AI coding assistants auto-detect.
+This creates only OpenSpec-owned project state under `openspec/`.
 
-By default, OpenSpec uses the `core` workflow profile (`propose`, `explore`, `apply`, `archive`). If you want the expanded workflow commands (`new`, `continue`, `ff`, `verify`, `sync`, `bulk-archive`, `onboard`), configure them with `openspec config profile` and apply with `openspec update`.
+OpenSpec no longer installs `.claude/skills/`, `.codex/skills/`, prompt files, or tool-specific command files. Keep those instructions in your own tool configuration.
 
 During setup, you'll be prompted to create a **project config** (`openspec/config.yaml`). This is optional but recommended.
 
@@ -410,11 +410,11 @@ Examples in this section use the expanded command set (`new`, `continue`, etc.);
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                    │                                                        │
 │                    ▼                                                        │
-│   Skill Files (.claude/skills/openspec-*/SKILL.md)                          │
+│   Your Agent Instructions (tool-owned, outside OpenSpec)                    │
 │                                                                             │
-│   • Cross-editor compatible (Claude Code, Cursor, Windsurf)                 │
-│   • Skills query CLI for structured data                                    │
-│   • Fully customizable via schema files                                     │
+│   • Keep these files in your own tool-specific setup                        │
+│   • OpenSpec CLI provides structured data and instructions                  │
+│   • OpenSpec does not create or refresh them                                │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

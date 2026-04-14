@@ -1,6 +1,6 @@
 # Migrating to OPSX
 
-This guide helps you transition from the legacy OpenSpec workflow to OPSX. The migration is designed to be smooth—your existing work is preserved, and the new system offers more flexibility.
+This guide helps you transition from the legacy OpenSpec workflow to OPSX. OpenSpec now manages only `openspec/` project state and does not migrate or install external agent skills/prompts.
 
 ## Runtime-Only State Root Migration
 
@@ -168,8 +168,8 @@ Needs your attention
 1. Legacy slash command directories are removed
 2. OpenSpec markers are stripped from `CLAUDE.md`, `AGENTS.md`, etc. (your content stays)
 3. `openspec/AGENTS.md` is deleted
-4. New skills are installed in `.claude/skills/`
-5. `openspec/config.yaml` is created with a default schema
+4. `openspec/config.yaml` is created or refreshed if needed
+5. OpenSpec-owned state directories are ensured under `openspec/`
 
 ### Using `openspec update`
 
@@ -179,14 +179,14 @@ Run this if you just want to migrate and refresh your existing tools to the late
 openspec update
 ```
 
-The update command also detects and cleans up legacy artifacts, then refreshes generated skills/commands to match your current profile and delivery settings.
+The update command now refreshes only OpenSpec-owned project state. Legacy agent files are left untouched.
 
 ### Non-Interactive / CI Environments
 
 For scripted migrations:
 
 ```bash
-openspec init --force --tools claude
+openspec init --force
 ```
 
 The `--force` flag skips prompts and auto-accepts cleanup.
@@ -336,7 +336,7 @@ Command availability is profile-dependent:
 | `/opsx:bulk-archive` | Archive multiple changes at once |
 | `/opsx:onboard` | Guided end-to-end onboarding workflow |
 
-Enable expanded commands with `openspec config profile`, then run `openspec update`.
+Keep expanded command wiring in your own tool configuration. OpenSpec no longer installs those files for you.
 
 ### Command Mapping from Legacy
 
@@ -429,15 +429,10 @@ The legacy system used tool-specific command files:
 └── archive.md
 ```
 
-OPSX uses the emerging **skills** standard:
+Older OPSX releases used generated skills, but current OpenSpec does not manage those files:
 
 ```
-.claude/skills/
-├── openspec-explore/SKILL.md
-├── openspec-new-change/SKILL.md
-├── openspec-continue-change/SKILL.md
-├── openspec-apply-change/SKILL.md
-└── ...
+Keep your assistant instructions in your own tool-owned directories.
 ```
 
 Skills are recognized across multiple AI coding tools and provide richer metadata.
@@ -591,19 +586,13 @@ project/
 │   ├── changes/                  # Unchanged
 │   │   └── archive/              # Unchanged
 │   └── config.yaml               # NEW: Project configuration
-├── .claude/
-│   └── skills/                   # NEW: OPSX skills
-│       ├── openspec-propose/     # default core profile
-│       ├── openspec-explore/
-│       ├── openspec-apply-change/
-│       └── ...                   # expanded profile adds new/continue/ff/etc.
 ├── CLAUDE.md                     # OpenSpec markers removed, your content preserved
 └── AGENTS.md                     # OpenSpec markers removed, your content preserved
 ```
 
 ### What's Gone
 
-- `.claude/commands/openspec/` — replaced by `.claude/skills/`
+- OpenSpec-managed `.claude/commands/openspec/` and `.claude/skills/` installs are gone
 - `openspec/AGENTS.md` — obsolete
 - `openspec/project.md` — migrate to `config.yaml`, then delete
 - OpenSpec marker blocks in `CLAUDE.md`, `AGENTS.md`, etc.

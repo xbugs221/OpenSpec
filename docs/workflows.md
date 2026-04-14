@@ -30,7 +30,7 @@ OPSX (fluid actions):
 
 ## Two Modes
 
-### Default Quick Path (`core` profile)
+### Default Quick Path
 
 New installs default to `core`, which provides:
 - `/opsx:propose`
@@ -49,8 +49,7 @@ Typical flow:
 If you want explicit scaffold-and-build commands (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:verify`, `/opsx:sync`, `/opsx:bulk-archive`, `/opsx:onboard`), enable them with:
 
 ```bash
-openspec config profile
-openspec update
+# Keep your agent command wiring in your own tool config.
 ```
 
 ## Workflow Patterns (Expanded Mode)

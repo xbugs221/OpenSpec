@@ -1,12 +1,12 @@
 # Commands
 
-This is the reference for OpenSpec's slash commands. These commands are invoked in your AI coding assistant's chat interface (e.g., Claude Code, Cursor, Windsurf).
+This is the reference for OpenSpec's slash commands. OpenSpec does not install these commands for your assistant; keep your agent instructions in your own tool-specific setup.
 
 For workflow patterns and when to use each command, see [Workflows](workflows.md). For CLI commands, see [CLI](cli.md).
 
 ## Quick Reference
 
-### Default Quick Path (`core` profile)
+### Default Quick Path
 
 | Command | Purpose |
 |---------|---------|
@@ -15,7 +15,7 @@ For workflow patterns and when to use each command, see [Workflows](workflows.md
 | `/opsx:apply` | Implement tasks from the change |
 | `/opsx:archive` | Archive a completed change |
 
-### Expanded Workflow Commands (custom workflow selection)
+### Expanded Workflow Commands
 
 | Command | Purpose |
 |---------|---------|
@@ -27,15 +27,13 @@ For workflow patterns and when to use each command, see [Workflows](workflows.md
 | `/opsx:bulk-archive` | Archive multiple changes at once |
 | `/opsx:onboard` | Guided tutorial through the complete workflow |
 
-The default global profile is `core`. To enable expanded workflow commands, run `openspec config profile`, select workflows, then run `openspec update` in your project.
-
 ---
 
 ## Command Reference
 
 ### `/opsx:propose`
 
-Create a new change and generate planning artifacts in one step. This is the default start command in the `core` profile.
+Create a new change and generate planning artifacts in one step. This is the default start command.
 
 **Syntax:**
 ```text
@@ -681,9 +679,9 @@ The AI tool doesn't recognize OpenSpec commands.
 
 **Solutions:**
 - Ensure OpenSpec is initialized: `openspec init`
-- Regenerate skills: `openspec update`
-- Check that `.claude/skills/` directory exists (for Claude Code)
-- Restart your AI tool to pick up new skills
+- Keep your tool-specific slash-command or prompt wiring in your own assistant configuration
+- Use `openspec update` only to refresh OpenSpec-owned project state
+- Restart your AI tool after changing your own instruction files
 
 ### Artifacts not generating properly
 

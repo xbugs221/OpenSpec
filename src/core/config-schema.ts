@@ -1,46 +1,29 @@
 import { z } from 'zod';
 
-/**
- * Zod schema for global OpenSpec configuration.
- * Uses passthrough() to preserve unknown fields for forward compatibility.
- */
+const REMOVED_LEGACY_KEYS = new Set(['profile', 'delivery', 'workflows', 'aiTools', 'installScope']);
+
 export const GlobalConfigSchema = z
   .object({
     featureFlags: z
       .record(z.string(), z.boolean())
       .optional()
       .default({}),
-    profile: z
-      .enum(['core', 'custom'])
-      .optional()
-      .default('core'),
-    delivery: z
-      .enum(['both', 'skills', 'commands'])
-      .optional()
-      .default('both'),
-    workflows: z
-      .array(z.string())
-      .optional(),
   })
   .passthrough();
 
 export type GlobalConfigType = z.infer<typeof GlobalConfigSchema>;
 
-/**
- * Default configuration values.
- */
 export const DEFAULT_CONFIG: GlobalConfigType = {
   featureFlags: {},
-  profile: 'core',
-  delivery: 'both',
 };
 
-const KNOWN_TOP_LEVEL_KEYS = new Set([...Object.keys(DEFAULT_CONFIG), 'workflows']);
+const KNOWN_TOP_LEVEL_KEYS = new Set([...Object.keys(DEFAULT_CONFIG)]);
 
-/**
- * Validate a config key path for CLI set operations.
- * Unknown top-level keys are rejected unless explicitly allowed by the caller.
- */
+export function isRemovedLegacyConfigKey(keyPath: string): boolean {
+  const rootKey = keyPath.split('.')[0];
+  return REMOVED_LEGACY_KEYS.has(rootKey);
+}
+
 export function validateConfigKeyPath(path: string): { valid: boolean; reason?: string } {
   const rawKeys = path.split('.');
 
@@ -49,6 +32,10 @@ export function validateConfigKeyPath(path: string): { valid: boolean; reason?: 
   }
 
   const rootKey = rawKeys[0];
+  if (REMOVED_LEGACY_KEYS.has(rootKey)) {
+    return { valid: false, reason: `Legacy installation key "${rootKey}" is no longer supported` };
+  }
+
   if (!KNOWN_TOP_LEVEL_KEYS.has(rootKey)) {
     return { valid: false, reason: `Unknown top-level key "${rootKey}"` };
   }
@@ -67,22 +54,12 @@ export function validateConfigKeyPath(path: string): { valid: boolean; reason?: 
   return { valid: true };
 }
 
-/**
- * Get a nested value from an object using dot notation.
- *
- * @param obj - The object to access
- * @param path - Dot-separated path (e.g., "featureFlags.someFlag")
- * @returns The value at the path, or undefined if not found
- */
 export function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   const keys = path.split('.');
   let current: unknown = obj;
 
   for (const key of keys) {
-    if (current === null || current === undefined) {
-      return undefined;
-    }
-    if (typeof current !== 'object') {
+    if (current === null || current === undefined || typeof current !== 'object') {
       return undefined;
     }
     current = (current as Record<string, unknown>)[key];
@@ -91,14 +68,6 @@ export function getNestedValue(obj: Record<string, unknown>, path: string): unkn
   return current;
 }
 
-/**
- * Set a nested value in an object using dot notation.
- * Creates intermediate objects as needed.
- *
- * @param obj - The object to modify (mutated in place)
- * @param path - Dot-separated path (e.g., "featureFlags.someFlag")
- * @param value - The value to set
- */
 export function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
   const keys = path.split('.');
   let current: Record<string, unknown> = obj;
@@ -111,17 +80,9 @@ export function setNestedValue(obj: Record<string, unknown>, path: string, value
     current = current[key] as Record<string, unknown>;
   }
 
-  const lastKey = keys[keys.length - 1];
-  current[lastKey] = value;
+  current[keys[keys.length - 1]] = value;
 }
 
-/**
- * Delete a nested value from an object using dot notation.
- *
- * @param obj - The object to modify (mutated in place)
- * @param path - Dot-separated path (e.g., "featureFlags.someFlag")
- * @returns true if the key existed and was deleted, false otherwise
- */
 export function deleteNestedValue(obj: Record<string, unknown>, path: string): boolean {
   const keys = path.split('.');
   let current: Record<string, unknown> = obj;
@@ -135,52 +96,29 @@ export function deleteNestedValue(obj: Record<string, unknown>, path: string): b
   }
 
   const lastKey = keys[keys.length - 1];
-  if (lastKey in current) {
-    delete current[lastKey];
-    return true;
+  if (!(lastKey in current)) {
+    return false;
   }
-  return false;
+
+  delete current[lastKey];
+  return true;
 }
 
-/**
- * Coerce a string value to its appropriate type.
- * - "true" / "false" -> boolean
- * - Numeric strings -> number
- * - Everything else -> string
- *
- * @param value - The string value to coerce
- * @param forceString - If true, always return the value as a string
- * @returns The coerced value
- */
 export function coerceValue(value: string, forceString: boolean = false): string | number | boolean {
   if (forceString) {
     return value;
   }
+  if (value === 'true') return true;
+  if (value === 'false') return false;
 
-  // Boolean coercion
-  if (value === 'true') {
-    return true;
-  }
-  if (value === 'false') {
-    return false;
-  }
-
-  // Number coercion - must be a valid finite number
   const num = Number(value);
-  if (!isNaN(num) && isFinite(num) && value.trim() !== '') {
+  if (!Number.isNaN(num) && Number.isFinite(num) && value.trim() !== '') {
     return num;
   }
 
   return value;
 }
 
-/**
- * Format a value for YAML-like display.
- *
- * @param value - The value to format
- * @param indent - Current indentation level
- * @returns Formatted string
- */
 export function formatValueYaml(value: unknown, indent: number = 0): string {
   const indentStr = '  '.repeat(indent);
 
@@ -188,12 +126,8 @@ export function formatValueYaml(value: unknown, indent: number = 0): string {
     return 'null';
   }
 
-  if (typeof value === 'boolean' || typeof value === 'number') {
+  if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
     return String(value);
-  }
-
-  if (typeof value === 'string') {
-    return value;
   }
 
   if (Array.isArray(value)) {
@@ -222,20 +156,13 @@ export function formatValueYaml(value: unknown, indent: number = 0): string {
   return String(value);
 }
 
-/**
- * Validate a configuration object against the schema.
- *
- * @param config - The configuration to validate
- * @returns Validation result with success status and optional error message
- */
 export function validateConfig(config: unknown): { success: boolean; error?: string } {
   try {
     GlobalConfigSchema.parse(config);
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const zodError = error as z.ZodError;
-      const messages = zodError.issues.map((e) => `${e.path.join('.')}: ${e.message}`);
+      const messages = error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
       return { success: false, error: messages.join('; ') };
     }
     return { success: false, error: 'Unknown validation error' };

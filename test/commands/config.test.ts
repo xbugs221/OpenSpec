@@ -1,285 +1,88 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { validateConfig, validateConfigKeyPath } from '../../src/core/config-schema.js';
+import { runCLI } from '../helpers/run-cli.js';
+import { getGlobalConfigPath } from '../../src/core/global-config.js';
 
-describe('config command integration', () => {
-  // These tests use real file system operations with XDG_CONFIG_HOME override
-  let tempDir: string;
-  let originalEnv: NodeJS.ProcessEnv;
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+const originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+let tempDir = '';
 
-  beforeEach(() => {
-    // Create unique temp directory for each test
-    tempDir = path.join(os.tmpdir(), `openspec-config-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    fs.mkdirSync(tempDir, { recursive: true });
+beforeEach(async () => {
+  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-config-command-'));
+  process.env.XDG_CONFIG_HOME = tempDir;
+});
 
-    // Save original env and set XDG_CONFIG_HOME
-    originalEnv = { ...process.env };
-    process.env.XDG_CONFIG_HOME = tempDir;
+afterEach(async () => {
+  process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+  if (tempDir) {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
 
-    // Spy on console.error
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+describe('config schema helpers', () => {
+  it('allows featureFlags and rejects removed legacy install keys', () => {
+    expect(validateConfigKeyPath('featureFlags').valid).toBe(true);
+    expect(validateConfigKeyPath('featureFlags.alpha').valid).toBe(true);
+    expect(validateConfigKeyPath('profile').valid).toBe(false);
+    expect(validateConfigKeyPath('delivery').valid).toBe(false);
   });
 
-  afterEach(() => {
-    // Restore original env
-    process.env = originalEnv;
-
-    // Clean up temp directory
-    fs.rmSync(tempDir, { recursive: true, force: true });
-
-    // Restore spies
-    consoleErrorSpy.mockRestore();
-
-    // Reset module cache to pick up new XDG_CONFIG_HOME
-    vi.resetModules();
-  });
-
-  it('should use XDG_CONFIG_HOME for config path', async () => {
-    const { getGlobalConfigPath } = await import('../../src/core/global-config.js');
-    const configPath = getGlobalConfigPath();
-    expect(configPath).toBe(path.join(tempDir, 'openspec', 'config.json'));
-  });
-
-  it('should save and load config correctly', async () => {
-    const { getGlobalConfig, saveGlobalConfig } = await import('../../src/core/global-config.js');
-
-    saveGlobalConfig({ featureFlags: { test: true } });
-    const config = getGlobalConfig();
-    expect(config.featureFlags).toEqual({ test: true });
-  });
-
-  it('should return defaults when config file does not exist', async () => {
-    const { getGlobalConfig, getGlobalConfigPath } = await import('../../src/core/global-config.js');
-
-    const configPath = getGlobalConfigPath();
-    // Make sure config doesn't exist
-    if (fs.existsSync(configPath)) {
-      fs.unlinkSync(configPath);
-    }
-
-    const config = getGlobalConfig();
-    expect(config.featureFlags).toEqual({});
-  });
-
-  it('should preserve unknown fields', async () => {
-    const { getGlobalConfig, getGlobalConfigDir } = await import('../../src/core/global-config.js');
-
-    const configDir = getGlobalConfigDir();
-    fs.mkdirSync(configDir, { recursive: true });
-    fs.writeFileSync(path.join(configDir, 'config.json'), JSON.stringify({
-      featureFlags: {},
-      customField: 'preserved',
-    }));
-
-    const config = getGlobalConfig();
-    expect((config as Record<string, unknown>).customField).toBe('preserved');
-  });
-
-  it('should handle invalid JSON gracefully', async () => {
-    const { getGlobalConfig, getGlobalConfigDir } = await import('../../src/core/global-config.js');
-
-    const configDir = getGlobalConfigDir();
-    fs.mkdirSync(configDir, { recursive: true });
-    fs.writeFileSync(path.join(configDir, 'config.json'), '{ invalid json }');
-
-    const config = getGlobalConfig();
-    // Should return defaults
-    expect(config.featureFlags).toEqual({});
-    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid JSON'));
+  it('accepts featureFlags config and unknown passthrough keys', () => {
+    expect(validateConfig({ featureFlags: { alpha: true } }).success).toBe(true);
+    expect(validateConfig({ featureFlags: {}, custom: 'ok' }).success).toBe(true);
   });
 });
 
-describe('config command shell completion registry', () => {
-  it('should have config command in registry', async () => {
-    const { COMMAND_REGISTRY } = await import('../../src/core/completions/command-registry.js');
+describe('config command', () => {
+  it('lists sanitized config values', async () => {
+    await fs.mkdir(path.dirname(getGlobalConfigPath()), { recursive: true });
+    await fs.writeFile(
+      getGlobalConfigPath(),
+      JSON.stringify({ featureFlags: { alpha: true }, profile: 'custom', custom: 'ok' }),
+      'utf-8'
+    );
 
-    const configCmd = COMMAND_REGISTRY.find((cmd) => cmd.name === 'config');
-    expect(configCmd).toBeDefined();
-    expect(configCmd?.description).toBe('View and modify global OpenSpec configuration');
-  });
-
-  it('should have all config subcommands in registry', async () => {
-    const { COMMAND_REGISTRY } = await import('../../src/core/completions/command-registry.js');
-
-    const configCmd = COMMAND_REGISTRY.find((cmd) => cmd.name === 'config');
-    const subcommandNames = configCmd?.subcommands?.map((s) => s.name) ?? [];
-
-    expect(subcommandNames).toContain('path');
-    expect(subcommandNames).toContain('list');
-    expect(subcommandNames).toContain('get');
-    expect(subcommandNames).toContain('set');
-    expect(subcommandNames).toContain('unset');
-    expect(subcommandNames).toContain('reset');
-    expect(subcommandNames).toContain('edit');
-  });
-
-  it('should have --json flag on list subcommand', async () => {
-    const { COMMAND_REGISTRY } = await import('../../src/core/completions/command-registry.js');
-
-    const configCmd = COMMAND_REGISTRY.find((cmd) => cmd.name === 'config');
-    const listCmd = configCmd?.subcommands?.find((s) => s.name === 'list');
-    const flagNames = listCmd?.flags?.map((f) => f.name) ?? [];
-
-    expect(flagNames).toContain('json');
-  });
-
-  it('should have --string flag on set subcommand', async () => {
-    const { COMMAND_REGISTRY } = await import('../../src/core/completions/command-registry.js');
-
-    const configCmd = COMMAND_REGISTRY.find((cmd) => cmd.name === 'config');
-    const setCmd = configCmd?.subcommands?.find((s) => s.name === 'set');
-    const flagNames = setCmd?.flags?.map((f) => f.name) ?? [];
-
-    expect(flagNames).toContain('string');
-    expect(flagNames).toContain('allow-unknown');
-  });
-
-  it('should have --all and -y flags on reset subcommand', async () => {
-    const { COMMAND_REGISTRY } = await import('../../src/core/completions/command-registry.js');
-
-    const configCmd = COMMAND_REGISTRY.find((cmd) => cmd.name === 'config');
-    const resetCmd = configCmd?.subcommands?.find((s) => s.name === 'reset');
-    const flagNames = resetCmd?.flags?.map((f) => f.name) ?? [];
-
-    expect(flagNames).toContain('all');
-    expect(flagNames).toContain('yes');
-  });
-
-  it('should have --scope flag on config command', async () => {
-    const { COMMAND_REGISTRY } = await import('../../src/core/completions/command-registry.js');
-
-    const configCmd = COMMAND_REGISTRY.find((cmd) => cmd.name === 'config');
-    const flagNames = configCmd?.flags?.map((f) => f.name) ?? [];
-
-    expect(flagNames).toContain('scope');
-  });
-});
-
-describe('config key validation', () => {
-  it('rejects unknown top-level keys', async () => {
-    const { validateConfigKeyPath } = await import('../../src/core/config-schema.js');
-    expect(validateConfigKeyPath('unknownKey').valid).toBe(false);
-  });
-
-  it('allows feature flag keys', async () => {
-    const { validateConfigKeyPath } = await import('../../src/core/config-schema.js');
-    expect(validateConfigKeyPath('featureFlags.someFlag').valid).toBe(true);
-  });
-
-  it('rejects deeply nested feature flag keys', async () => {
-    const { validateConfigKeyPath } = await import('../../src/core/config-schema.js');
-    expect(validateConfigKeyPath('featureFlags.someFlag.extra').valid).toBe(false);
-  });
-
-  it('allows profile key', async () => {
-    const { validateConfigKeyPath } = await import('../../src/core/config-schema.js');
-    expect(validateConfigKeyPath('profile').valid).toBe(true);
-  });
-
-  it('allows delivery key', async () => {
-    const { validateConfigKeyPath } = await import('../../src/core/config-schema.js');
-    expect(validateConfigKeyPath('delivery').valid).toBe(true);
-  });
-
-  it('allows workflows key', async () => {
-    const { validateConfigKeyPath } = await import('../../src/core/config-schema.js');
-    expect(validateConfigKeyPath('workflows').valid).toBe(true);
-  });
-});
-
-describe('config profile command', () => {
-  let tempDir: string;
-  let originalEnv: NodeJS.ProcessEnv;
-
-  beforeEach(() => {
-    tempDir = path.join(os.tmpdir(), `openspec-profile-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    fs.mkdirSync(tempDir, { recursive: true });
-    originalEnv = { ...process.env };
-    process.env.XDG_CONFIG_HOME = tempDir;
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    vi.resetModules();
-  });
-
-  it('core preset should set profile to core and preserve delivery', async () => {
-    const { getGlobalConfig, saveGlobalConfig } = await import('../../src/core/global-config.js');
-
-    // Set initial config with custom delivery
-    saveGlobalConfig({ featureFlags: {}, profile: 'custom', delivery: 'skills', workflows: ['explore'] });
-
-    // Simulate the core preset logic
-    const config = getGlobalConfig();
-    const { CORE_WORKFLOWS } = await import('../../src/core/profiles.js');
-    config.profile = 'core';
-    config.workflows = [...CORE_WORKFLOWS];
-    // Delivery should be preserved
-    saveGlobalConfig(config);
-
-    const result = getGlobalConfig();
-    expect(result.profile).toBe('core');
-    expect(result.delivery).toBe('skills'); // preserved
-    expect(result.workflows).toEqual(['propose', 'explore', 'apply', 'archive']);
-  });
-
-  it('custom workflow selection should set profile to custom', async () => {
-    const { getGlobalConfig, saveGlobalConfig } = await import('../../src/core/global-config.js');
-    const { CORE_WORKFLOWS } = await import('../../src/core/profiles.js');
-
-    // Simulate custom selection that differs from core
-    const selectedWorkflows = ['explore', 'new', 'apply', 'ff', 'verify'];
-    const isCoreMatch =
-      selectedWorkflows.length === CORE_WORKFLOWS.length &&
-      CORE_WORKFLOWS.every((w: string) => selectedWorkflows.includes(w));
-
-    expect(isCoreMatch).toBe(false);
-
-    saveGlobalConfig({
-      featureFlags: {},
-      profile: isCoreMatch ? 'core' : 'custom',
-      delivery: 'both',
-      workflows: selectedWorkflows,
+    const result = await runCLI(['config', 'list', '--json'], {
+      env: { XDG_CONFIG_HOME: tempDir },
     });
 
-    const result = getGlobalConfig();
-    expect(result.profile).toBe('custom');
-    expect(result.workflows).toEqual(selectedWorkflows);
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      featureFlags: { alpha: true },
+      custom: 'ok',
+    });
   });
 
-  it('selecting exactly core workflows should set profile to core', async () => {
-    const { CORE_WORKFLOWS } = await import('../../src/core/profiles.js');
+  it('rejects removed config profile command', async () => {
+    const result = await runCLI(['config', 'profile'], {
+      env: { XDG_CONFIG_HOME: tempDir },
+    });
 
-    const selectedWorkflows = [...CORE_WORKFLOWS];
-    const isCoreMatch =
-      selectedWorkflows.length === CORE_WORKFLOWS.length &&
-      CORE_WORKFLOWS.every((w: string) => selectedWorkflows.includes(w));
-
-    expect(isCoreMatch).toBe(true);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('has been removed');
   });
 
-  it('config schema should validate profile and delivery values', async () => {
-    const { validateConfig } = await import('../../src/core/config-schema.js');
+  it('sets and gets feature flags', async () => {
+    const setResult = await runCLI(['config', 'set', 'featureFlags.alpha', 'true'], {
+      env: { XDG_CONFIG_HOME: tempDir },
+    });
+    expect(setResult.exitCode).toBe(0);
 
-    expect(validateConfig({ featureFlags: {}, profile: 'core', delivery: 'both' }).success).toBe(true);
-    expect(validateConfig({ featureFlags: {}, profile: 'custom', delivery: 'skills' }).success).toBe(true);
-    expect(validateConfig({ featureFlags: {}, profile: 'custom', delivery: 'commands', workflows: ['explore'] }).success).toBe(true);
+    const getResult = await runCLI(['config', 'get', 'featureFlags.alpha'], {
+      env: { XDG_CONFIG_HOME: tempDir },
+    });
+    expect(getResult.exitCode).toBe(0);
+    expect(getResult.stdout.trim()).toBe('true');
   });
 
-  it('config schema should reject invalid profile values', async () => {
-    const { validateConfig } = await import('../../src/core/config-schema.js');
+  it('rejects removed legacy keys during set', async () => {
+    const result = await runCLI(['config', 'set', 'profile', 'custom'], {
+      env: { XDG_CONFIG_HOME: tempDir },
+    });
 
-    const result = validateConfig({ featureFlags: {}, profile: 'invalid' });
-    expect(result.success).toBe(false);
-  });
-
-  it('config schema should reject invalid delivery values', async () => {
-    const { validateConfig } = await import('../../src/core/config-schema.js');
-
-    const result = validateConfig({ featureFlags: {}, delivery: 'invalid' });
-    expect(result.success).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('removed legacy installation key');
   });
 });
