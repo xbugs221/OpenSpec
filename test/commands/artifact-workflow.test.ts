@@ -346,6 +346,17 @@ describe('artifact-workflow CLI commands', () => {
       expect(stat.isDirectory()).toBe(true);
     });
 
+    it('creates a new change directory when the name starts with numbers', async () => {
+      const result = await runCLI(['new', 'change', '2026-upgrade-auth'], { cwd: tempDir });
+      expect(result.exitCode).toBe(0);
+      const output = getOutput(result);
+      expect(output).toContain("Created change '2026-upgrade-auth'");
+
+      const changeDir = path.join(changesDir, '2026-upgrade-auth');
+      const stat = await fs.stat(changeDir);
+      expect(stat.isDirectory()).toBe(true);
+    });
+
     it('creates README.md when --description is provided', async () => {
       const result = await runCLI(
         ['new', 'change', 'described-feature', '--description', 'This is a test feature'],

@@ -31,6 +31,16 @@ describe('validateChangeName', () => {
       const result = validateChangeName('upgrade-to-v2');
       expect(result).toEqual({ valid: true });
     });
+
+    it('should accept name starting with numbers', () => {
+      const result = validateChangeName('2026-upgrade-auth');
+      expect(result).toEqual({ valid: true });
+    });
+
+    it('should accept numeric-only first segment', () => {
+      const result = validateChangeName('2fa-login');
+      expect(result).toEqual({ valid: true });
+    });
   });
 
   describe('invalid names - uppercase rejected', () => {
@@ -144,6 +154,14 @@ describe('createChange', () => {
       const metaPath = path.join(testDir, 'openspec', 'changes', 'add-auth', '.openspec.yaml');
       const content = await fs.readFile(metaPath, 'utf-8');
       expect(content).toContain('schema: spec-driven');
+    });
+
+    it('should create change directory for a name starting with numbers', async () => {
+      await createChange(testDir, '2026-upgrade-auth');
+
+      const changeDir = path.join(testDir, 'openspec', 'changes', '2026-upgrade-auth');
+      const stats = await fs.stat(changeDir);
+      expect(stats.isDirectory()).toBe(true);
     });
   });
 

@@ -39,7 +39,7 @@ export interface ValidationResult {
  * Validates that a change name follows kebab-case conventions.
  *
  * Valid names:
- * - Start with a lowercase letter
+ * - Start with a lowercase letter or number
  * - Contain only lowercase letters, numbers, and hyphens
  * - Do not start or end with a hyphen
  * - Do not contain consecutive hyphens
@@ -53,9 +53,9 @@ export interface ValidationResult {
  */
 export function validateChangeName(name: string): ValidationResult {
   /** Prevent path traversal and keep change directory names predictable. */
-  // Pattern: starts with lowercase letter, followed by lowercase letters/numbers,
+  // Pattern: starts with lowercase letter/number, followed by lowercase letters/numbers,
   // optionally followed by hyphen + lowercase letters/numbers (repeatable)
-  const kebabCasePattern = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+  const kebabCasePattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
   if (!name) {
     return { valid: false, error: 'Change name cannot be empty' };
@@ -84,10 +84,6 @@ export function validateChangeName(name: string): ValidationResult {
     if (/[^a-z0-9-]/.test(name)) {
       return { valid: false, error: 'Change name can only contain lowercase letters, numbers, and hyphens' };
     }
-    if (/^[0-9]/.test(name)) {
-      return { valid: false, error: 'Change name must start with a letter' };
-    }
-
     return { valid: false, error: 'Change name must follow kebab-case convention (e.g., add-auth, refactor-db)' };
   }
 
